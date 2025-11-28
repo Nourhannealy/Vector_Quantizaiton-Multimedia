@@ -1,3 +1,10 @@
+#File name: VQ_20230779_20230453.py
+#About: Vector Quantizer for image compression
+#Authors: 
+#   Daad Amar Osman 20230779
+#   Norhan Aly Zakaria 20230453
+
+
 import pickle
 import os
 import math
@@ -173,7 +180,66 @@ class VectorQuantizer:
         
         return True, compression_ratio
     
-    
+    def decompress(self, codebook_path, indices_path, output_path='reconstructed.png'):
+
+        # Load codebook + metadata
+        try:
+            with open(codebook_path, 'rb') as f:
+                data = pickle.load(f)
+        except:
+            print("Error: Could not load codebook file.")
+            return False
+
+        codebook = data['codebook']
+        original_h, original_w = data['original_shape']
+        padded_h, padded_w = data['padded_shape']
+        block_h = data['block_height']
+        block_w = data['block_width']
+
+        # Load encoded indices
+        try:
+            with open(indices_path, 'rb') as f:
+                encoded_indices = pickle.load(f)
+        except:
+            print("Error: Could not load indices file.")
+            return False
+
+        # Prepare empty pixel list for padded reconstruction
+        reconstructed_pixels = [0] * (padded_h * padded_w)
+
+        index = 0
+        for i in range(0, padded_h, block_h):
+            for j in range(0, padded_w, block_w):
+
+                codeword = codebook[encoded_indices[index]]
+                index += 1
+
+                # Fill block pixels
+                p = 0
+                for bi in range(block_h):
+                    for bj in range(block_w):
+                        y = i + bi
+                        x = j + bj
+                        reconstructed_pixels[y * padded_w + x] = int(codeword[p])
+                        p += 1
+
+        # Convert list back to Pillow image
+        reconstructed_image = Image.new('L', (padded_w, padded_h))
+        reconstructed_image.putdata(reconstructed_pixels)
+
+        # Crop padded regions
+        reconstructed_image = reconstructed_image.crop((0, 0, original_w, original_h))
+
+        # Save final output image
+        reconstructed_image.save(output_path)
+
+        print("\n" + "="*50)
+        print("DECOMPRESSION COMPLETE")
+        print("="*50)
+        print(f"Reconstructed Image Saved: {output_path}")
+        print("="*50)
+
+        return True
 
 def main():
     print("\n" + "="*60)
@@ -212,7 +278,23 @@ def main():
             except ValueError:
                 print(" Invalid input!")
         
-        
+        elif choice == '2':
+            print("\n--- DECOMPRESSION ---")
+
+            codebook_path = input("Enter codebook file path: ").strip()
+            indices_path = input("Enter encoded indices file path: ").strip()
+            output_image = input("Enter output image name (e.g. output.png): ").strip()
+
+            vq = VectorQuantizer(1, 1, 1)  # dummy, values replaced by loaded metadata
+
+            success = vq.decompress(codebook_path, indices_path, output_image)
+
+            if success:
+                print("\n Decompression done! Image saved.")
+
+        else:
+            print("Goodbye. Have a good day :)")
+            return
         
 
 if __name__ == "__main__":
